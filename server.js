@@ -4,14 +4,14 @@ const path = require("path");
 const cors = require("cors");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.MONGODB_URI || 3000;
 
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(cors());
 
 // Serve static frontend only in local dev; on Vercel, frontend is a separate deployment
-if (!process.env.VERCEL) {
+if (!process.env.MONGODB_URI) {
   app.use(express.static(path.join(__dirname, "../frontend")));
 }
 
@@ -29,7 +29,7 @@ app.get("/api/health", (req, res) => {
 
 // Root route: serve frontend only in local dev
 app.get("/", (req, res) => {
-  if (process.env.VERCEL) {
+  if (process.env.MONGODB_URI) {
     return res.status(200).send("Backend is running");
   }
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
@@ -51,7 +51,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/jobs", jobRoutes);
 
 // Export app for Vercel; listen locally during development
-if (process.env.VERCEL) {
+if (process.env.MONGODB_URI) {
   module.exports = app;
 } else {
   app.listen(PORT, () => {
