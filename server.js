@@ -2,16 +2,19 @@ const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
 const cors = require("cors");
+const dotenv = require("dotenv");
+
+dotenv.config();
 
 const app = express();
-const PORT = process.env.MONGODB_URI || 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(cors());
 
 // Serve static frontend only in local dev; on Vercel, frontend is a separate deployment
-if (!process.env.MONGODB_URI) {
+if (!process.env.VERCEL) {
   app.use(express.static(path.join(__dirname, "../frontend")));
 }
 
@@ -20,7 +23,12 @@ const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/JSB_DB";
 mongoose
   .connect(mongoUri)
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .catch((err) => {
+    console.error("MongoDB connection error:", err.message || err);
+    if (process.env.VERCEL) {
+      throw err;
+    }
+  });
 
 // Health route (works on Vercel)
 app.get("/api/health", (req, res) => {
@@ -29,7 +37,7 @@ app.get("/api/health", (req, res) => {
 
 // Root route: serve frontend only in local dev
 app.get("/", (req, res) => {
-  if (process.env.MONGODB_URI) {
+  if (process.env.VERCEL) {
     return res.status(200).send("Backend is running");
   }
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
@@ -50,8 +58,13 @@ app.use("/api/job-seekers", jobSeekerProfileRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/jobs", jobRoutes);
 
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err.message || err);
+  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
+});
+
 // Export app for Vercel; listen locally during development
-if (process.env.MONGODB_URI) {
+if (process.env.VERCEL) {
   module.exports = app;
 } else {
   app.listen(PORT, () => {
